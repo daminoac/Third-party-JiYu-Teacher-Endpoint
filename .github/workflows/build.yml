@@ -2,9 +2,8 @@ name: Build & Test
 
 on:
   push:
-    branches: [GUI-C++]
   pull_request:
-    branches: [GUI-C++]
+  workflow_dispatch:
 
 permissions:
   contents: read
