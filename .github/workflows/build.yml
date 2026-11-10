@@ -26,11 +26,6 @@ jobs:
       matrix:
         configuration: [Debug, Release]
 
-    defaults:
-      run:
-        working-directory: cpp-gui
-        shell: pwsh
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -74,7 +69,7 @@ jobs:
         with:
           name: JiYuTeacherGui-${{ matrix.configuration }}-x64
           path: |
-            cpp-gui/out/${{ matrix.configuration }}/JiYuTeacherGui.exe
-            cpp-gui/out/${{ matrix.configuration }}/JiYuProtocolTests.exe
+            out/${{ matrix.configuration }}/JiYuTeacherGui.exe
+            out/${{ matrix.configuration }}/JiYuProtocolTests.exe
           if-no-files-found: error
           retention-days: 14
