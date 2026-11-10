@@ -37,8 +37,11 @@ jobs:
       - name: Cache vcpkg
         uses: actions/cache@v6.1.0
         with:
-          path: C:\vcpkg
-          key: vcpkg-${{ runner.os }}-boost-asio-v1
+          path: |
+            C:\vcpkg
+            vcpkg_installed
+            ${{ env.VCPKG_DOWNLOADS }}
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
 
       - name: Bootstrap vcpkg and install Boost.Asio
         run: |
@@ -46,16 +49,18 @@ jobs:
             git clone --depth 1 https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
             & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
           }
-          & "$env:VCPKG_ROOT\vcpkg.exe" install boost-asio `
-            --triplet $env:VCPKG_TRIPLET --clean-after-build
+          & "$env:VCPKG_ROOT\vcpkg.exe" install `
+            --triplet $env:VCPKG_TRIPLET `
+            --x-manifest-root=. `
+            --x-install-root=vcpkg_installed `
+            --clean-after-build
 
       - name: Build solution
         run: |
           msbuild ".\JiYuTeacherCppGui.sln" `
             /m `
             /p:Configuration=${{ matrix.configuration }} `
-            /p:Platform=x64 `
-            /p:JiYuVcpkgInstalled="$env:VCPKG_ROOT\installed\$env:VCPKG_TRIPLET"
+            /p:Platform=x64
 
       - name: Run protocol self-tests
         run: |
