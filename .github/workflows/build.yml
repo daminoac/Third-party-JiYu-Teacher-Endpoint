@@ -1,0 +1,82 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [GUI-C++]
+  pull_request:
+    branches: [GUI-C++]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VCPKG_ROOT: C:\vcpkg
+  VCPKG_TRIPLET: x64-windows
+
+jobs:
+  build:
+    name: Build ${{ matrix.configuration }} (x64)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+
+    defaults:
+      run:
+        working-directory: cpp-gui
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      # 缓存 vcpkg 的 clone 与已安装包，加速后续构建
+      - name: Cache vcpkg
+        uses: actions/cache@v6.1.0
+        with:
+          path: C:\vcpkg
+          key: vcpkg-${{ runner.os }}-boost-asio-v1
+
+      - name: Bootstrap vcpkg and install Boost.Asio
+        run: |
+          if (-not (Test-Path "$env:VCPKG_ROOT\vcpkg.exe")) {
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+            & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+          }
+          & "$env:VCPKG_ROOT\vcpkg.exe" install boost-asio `
+            --triplet $env:VCPKG_TRIPLET --clean-after-build
+
+      - name: Build solution
+        run: |
+          msbuild ".\JiYuTeacherCppGui.sln" `
+            /m `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=x64 `
+            /p:JiYuVcpkgInstalled="$env:VCPKG_ROOT\installed\$env:VCPKG_TRIPLET"
+
+      - name: Run protocol self-tests
+        run: |
+          $exe = ".\out\${{ matrix.configuration }}\JiYuProtocolTests.exe"
+          if (-not (Test-Path $exe)) { throw "Test executable not found: $exe" }
+          & $exe
+          if ($LASTEXITCODE -ne 0) { throw "JiYuProtocolTests failed with exit code $LASTEXITCODE" }
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: JiYuTeacherGui-${{ matrix.configuration }}-x64
+          path: |
+            cpp-gui/out/${{ matrix.configuration }}/JiYuTeacherGui.exe
+            cpp-gui/out/${{ matrix.configuration }}/JiYuProtocolTests.exe
+          if-no-files-found: error
+          retention-days: 14
